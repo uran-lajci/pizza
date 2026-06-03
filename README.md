@@ -1,18 +1,81 @@
-# Hash Code 2017, 2018 & 2019 practice problem solution: Pizza
+# Running the Pizza Solver (Ubuntu / Mono)
 
-[Problem definition & data files](https://bytefreaks.net/google/practice-problem-for-google-hash-code-2018)
+This is a .NET Framework 4.6.1 project that uses `System.Drawing` to produce a
+visualization image. On Linux it runs under **Mono**.
 
-Algorithm type: greedy. 
-1. Scan the pizza for unsliced position.
-2. Find largest valid slice using this position. Grow from current position in all directions. Allow overslapping with existing slices, as long as the remaining part of the slice is valid after overlap.
-3. If valid slice found - clear all the ingredients contained in the slice & add slice. Update all overlapped slices.
-4. If scan not completed - go to 1.
-5. Rescan slices, retry growing the slices.
+## Prerequisites
 
-Solution score: 959,202 
-- Example: 15
-- Small: 42
-- Medium: 49,576
-- Big: 909,569
+```bash
+sudo apt update
+sudo apt install -y mono-complete libgdiplus
+```
 
-Please ignore code style. The objective was to complete the task as fast as possible.
+- `mono-complete` provides the runtime and build tools (`xbuild`/`msbuild`).
+- `libgdiplus` is **required** — without it the `.png` generation throws a
+  `System.Drawing` error at runtime.
+
+## Build
+
+From the repository root:
+
+```bash
+xbuild HashCode_Pizza.sln /p:Configuration=Release
+```
+
+(`xbuild` is deprecated but works fine here. If your Mono has `msbuild`, use that
+instead.)
+
+The compiled executable is produced at:
+
+```
+HashCode_Pizza/bin/Release/HashCode_Pizza.exe
+```
+
+## Run
+
+The program takes a **single argument**: the path to a Hash Code pizza input
+file.
+
+```bash
+mono HashCode_Pizza/bin/Release/HashCode_Pizza.exe path/to/input.in
+```
+
+It prints the score to the console, for example:
+
+```
+Max theoretical score: 1000000
+Solution score: 909569
+```
+
+It also writes two files next to the input:
+
+- `input.in.out` — the submission file (slice coordinates).
+- `input.in.png` — a color visualization of the slicing.
+
+If the solution is malformed, the program prints `ERROR: Invalid slicing`.
+
+## Input format
+
+First line: `rows columns minIngredientsPerSlice maxSliceSize`, followed by
+`rows` lines of `T` (tomato) and `M` (mushroom) characters.
+
+Quick test:
+
+```bash
+cat > test.in <<'EOF'
+3 5 1 6
+TTTTT
+TMMMT
+TTTTT
+EOF
+mono HashCode_Pizza/bin/Release/HashCode_Pizza.exe test.in
+```
+
+## Notes
+
+- **Deterministic:** the algorithm has no randomness or parallelism, so the same
+  input always produces the same score and output.
+- **Runtime:** all 2017 practice instances (including big, 1000×1000) finish in
+  seconds — well under any 10-minute limit.
+- Reference scores on the 2017 practice set: Example 15, Small 42,
+  Medium 49,576, Big 909,569 (total 959,202).
