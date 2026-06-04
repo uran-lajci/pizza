@@ -141,8 +141,76 @@ namespace HashCode_Pizza
                 prevScore = currScore;
             } while (improved);
             FillGaps(plate, sliceHash, ref nextSliceId);
+            ExpandSlices(plate, sliceHash);
             return new List<PizzaSlice>(sliceHash.Values);
         }
+        
+        private void ExpandSlices(int[,] plate, Dictionary<int, PizzaSlice> sliceHash)
+        {
+            bool expanded;
+            do
+            {
+                expanded = false;
+                List<PizzaSlice> slices = sliceHash.Values.ToList();
+                foreach (PizzaSlice slice in slices)
+                {
+                    if (!sliceHash.TryGetValue(slice.ID, out PizzaSlice current)) continue;
+
+                    int nrMin = current.RowMin, nrMax = current.RowMax, ncMin = current.ColumnMin, ncMax = current.ColumnMax;
+
+                    // try expand up
+                    if (current.RowMin > 0)
+                    {
+                        bool allFree = true;
+                        for (int cc = current.ColumnMin; cc <= current.ColumnMax; cc++)
+                            if (plate[current.RowMin - 1, cc] <= 0) { allFree = false; break; }
+                        if (allFree && IsValidSlice(mPlate, current.RowMin - 1, current.RowMax, current.ColumnMin, current.ColumnMax) == CHECK_SLICE_VALID)
+                            nrMin = current.RowMin - 1;
+                    }
+                    // try expand down
+                    if (current.RowMax < mRows - 1)
+                    {
+                        bool allFree = true;
+                        for (int cc = current.ColumnMin; cc <= current.ColumnMax; cc++)
+                            if (plate[current.RowMax + 1, cc] <= 0) { allFree = false; break; }
+                        if (allFree && IsValidSlice(mPlate, current.RowMin, current.RowMax + 1, current.ColumnMin, current.ColumnMax) == CHECK_SLICE_VALID)
+                            nrMax = current.RowMax + 1;
+                    }
+                    // try expand left
+                    if (current.ColumnMin > 0)
+                    {
+                        bool allFree = true;
+                        for (int rr = current.RowMin; rr <= current.RowMax; rr++)
+                            if (plate[rr, current.ColumnMin - 1] <= 0) { allFree = false; break; }
+                        if (allFree && IsValidSlice(mPlate, current.RowMin, current.RowMax, current.ColumnMin - 1, current.ColumnMax) == CHECK_SLICE_VALID)
+                            ncMin = current.ColumnMin - 1;
+                    }
+                    // try expand right
+                    if (current.ColumnMax < mColumns - 1)
+                    {
+                        bool allFree = true;
+                        for (int rr = current.RowMin; rr <= current.RowMax; rr++)
+                            if (plate[rr, current.ColumnMax + 1] <= 0) { allFree = false; break; }
+                        if (allFree && IsValidSlice(mPlate, current.RowMin, current.RowMax, current.ColumnMin, current.ColumnMax + 1) == CHECK_SLICE_VALID)
+                            ncMax = current.ColumnMax + 1;
+                    }
+
+                    if (nrMin != current.RowMin || nrMax != current.RowMax || ncMin != current.ColumnMin || ncMax != current.ColumnMax)
+                    {
+                        // remove old slice from plate, add new extended slice
+                        for (int r = current.RowMin; r <= current.RowMax; r++)
+                            for (int c = current.ColumnMin; c <= current.ColumnMax; c++)
+                                plate[r, c] = mPlate[r, c];
+                        sliceHash.Remove(current.ID);
+                        PizzaSlice expandedSlice = new PizzaSlice(current.ID, nrMin, nrMax, ncMin, ncMax);
+                        expandedSlice.RemoveSliceFromPlate(plate);
+                        sliceHash.Add(expandedSlice.ID, expandedSlice);
+                        expanded = true;
+                    }
+                }
+            } while (expanded);
+        }
+
         private void FillGaps(int[,] plate, Dictionary<int, PizzaSlice> sliceHash, ref int nextSliceId)
         {
             bool placed;
