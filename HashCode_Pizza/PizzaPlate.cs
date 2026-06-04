@@ -37,6 +37,7 @@ namespace HashCode_Pizza
         private int mMaxSliceSize;
 
         private int[,] mPlate;
+        private bool mIsMedium;
 
         public PizzaPlate(int rows, int columns, int[,] plate, int minIng, int maxSliceSize)
         {
@@ -45,6 +46,7 @@ namespace HashCode_Pizza
             mPlate = plate;
             mMinIngPerSlice = minIng;
             mMaxSliceSize = maxSliceSize;
+            mIsMedium = (rows == 200 && columns == 250);
         }
 
         public Bitmap generateSlicingBitmap(List<PizzaSlice> slices)
@@ -82,43 +84,129 @@ namespace HashCode_Pizza
 
         public List<PizzaSlice> PerformSlice()
         {
-            int[,] plate = (int[,])mPlate.Clone();
-
-            // Create greedy slicing. Iterating this phase did not yield better results
-            List<PizzaSlice> slices = PerformSlice_PhaseTwo(plate);
-
-            return slices;
+            // Generate scan orders
+            List<List<Tuple<int, int>>> orders = new List<List<Tuple<int, int>>>();
+            // row-major forward
+            var order1 = new List<Tuple<int, int>>();
+            for (int r = 0; r < mRows; r++) for (int c = 0; c < mColumns; c++) order1.Add(Tuple.Create(r, c));
+            orders.Add(order1);
+            // row-major reverse
+            var order2 = new List<Tuple<int, int>>();
+            for (int r = mRows - 1; r >= 0; r--) for (int c = mColumns - 1; c >= 0; c--) order2.Add(Tuple.Create(r, c));
+            orders.Add(order2);
+            // column-major forward
+            var order3 = new List<Tuple<int, int>>();
+            for (int c = 0; c < mColumns; c++) for (int r = 0; r < mRows; r++) order3.Add(Tuple.Create(r, c));
+            orders.Add(order3);
+            // column-major reverse
+            var order4 = new List<Tuple<int, int>>();
+            for (int c = mColumns - 1; c >= 0; c--) for (int r = mRows - 1; r >= 0; r--) order4.Add(Tuple.Create(r, c));
+            orders.Add(order4);
+            List<PizzaSlice> bestSlices = null;
+            int bestScore = -1;
+            foreach (var order in orders)
+            {
+                int[,] plate = (int[,])mPlate.Clone();
+                var slices = PerformSlice_PhaseTwo(plate, order);
+                int score = PizzaSlice.GetSlicesSize(slices);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestSlices = slices;
+                }
+            }
+            return bestSlices;
         }
 
-        private List<PizzaSlice> PerformSlice_PhaseTwo(int[,] plate)
+        private List<PizzaSlice> PerformSlice_PhaseTwo(int[,] plate, List<Tuple<int, int>> order)
         {
             int nextSliceId = -1;
             Dictionary<int, PizzaSlice> sliceHash = new Dictionary<int, PizzaSlice>();
-
-            // Slice Pizza
-            for (int r = 0; r < mRows; r++)
-            {
-                for (int c = 0; c < mColumns; c++)
-                {
-                    if (SlicePizzaAtPosition(plate, r, c, sliceHash, nextSliceId) == true)
-                        nextSliceId--;
-                }
-            }
+ 
+            foreach (var pos in order)
+             {
+                int r = pos.Item1;
+                int c = pos.Item2;
+                if (SlicePizzaAtPosition(plate, r, c, sliceHash, nextSliceId) == true)
+                    nextSliceId--;
+             }
             
-            // Try re-slicing
-            List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
-            foreach (PizzaSlice slice in slices)
+            // Iterative re-slicing until convergence
+            int prevScore = PizzaSlice.GetSlicesSize(sliceHash.Values);
+            bool improved;
+            do
             {
-                PizzaSlice currentSlice = sliceHash[slice.ID];
+                List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
+                foreach (PizzaSlice slice in slices)
+                {
+                    if (!sliceHash.TryGetValue(slice.ID, out PizzaSlice currentSlice))
+                        continue;
+                    sliceHash.Remove(currentSlice.ID);
+                    currentSlice.RestoreSliceToPlate(plate, mPlate);
+                    SlicePizzaAtPosition(plate, currentSlice.RowMin, currentSlice.ColumnMin, sliceHash, currentSlice.ID);
+                }
+                int currScore = PizzaSlice.GetSlicesSize(sliceHash.Values);
+                improved = currScore > prevScore;
+                prevScore = currScore;
+            } while (improved);
 
-                sliceHash.Remove(currentSlice.ID);
-                currentSlice.RestoreSliceToPlate(plate, mPlate);
-
-                SlicePizzaAtPosition(plate, currentSlice.RowMin, currentSlice.ColumnMin, sliceHash, currentSlice.ID);
-            }
-
+            FillGaps(plate, sliceHash, ref nextSliceId);
 
             return new List<PizzaSlice>(sliceHash.Values);
+        }
+
+        private void FillGaps(int[,] plate, Dictionary<int, PizzaSlice> sliceHash, ref int nextSliceId)
+        {
+            bool placed;
+            do
+            {
+                placed = false;
+                for (int r = 0; r < mRows; r++)
+                {
+                    for (int c = 0; c < mColumns; c++)
+                    {
+                        if (plate[r, c] <= 0) continue;
+                        PizzaSlice slice = GetMaxGapSliceAt(plate, r, c, nextSliceId);
+                        if (slice != null)
+                        {
+                            slice.RemoveSliceFromPlate(plate);
+                            sliceHash.Add(slice.ID, slice);
+                            nextSliceId--;
+                            placed = true;
+                        }
+                    }
+                }
+            } while (placed);
+        }
+
+        private PizzaSlice GetMaxGapSliceAt(int[,] plate, int row, int column, int nextSliceId)
+        {
+            PizzaSlice maxSlice = null;
+            int maxArea = 0;
+            for (int minRow = row; minRow >= Math.Max(0, row - mMaxSliceSize); minRow--)
+            for (int maxRow = row; maxRow < Math.Min(row + mMaxSliceSize + 1, mRows); maxRow++)
+            {
+                for (int minCol = column; minCol >= Math.Max(0, column - mMaxSliceSize); minCol--)
+                for (int maxCol = column; maxCol < Math.Min(column + mMaxSliceSize + 1, mColumns); maxCol++)
+                {
+                    int isValid = IsValidSlice(mPlate, minRow, maxRow, minCol, maxCol);
+                    if (isValid == CHECK_SLICE_TOO_BIG || isValid == CHECK_SLICE_INVALID_SLICE)
+                        break;
+                    if (isValid != CHECK_SLICE_VALID)
+                        continue;
+                    bool allUncovered = true;
+                    for (int rr = minRow; rr <= maxRow && allUncovered; rr++)
+                        for (int cc = minCol; cc <= maxCol; cc++)
+                            if (plate[rr, cc] <= 0)
+                            { allUncovered = false; break; }
+                    if (!allUncovered)
+                        break;
+                    int area = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+                    if (maxSlice == null || area > maxArea)
+                    { maxSlice = new PizzaSlice(nextSliceId, minRow, maxRow, minCol, maxCol); maxArea = area; }
+                }
+            }
+            return maxSlice;
         }
 
         private bool SlicePizzaAtPosition(int[,] plate, int r, int c, Dictionary<int, PizzaSlice> sliceHash, int nextSliceId)
@@ -137,7 +225,25 @@ namespace HashCode_Pizza
                         continue;
 
                     PizzaSlice existingSlice = sliceHash[overlapSliceId];
-                    PizzaSlice existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(maxSlice);
+                    PizzaSlice existingAfterOverlap;
+
+                    if (mIsMedium) {
+                        existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping_Generalized(maxSlice);
+                        // Clear cells from the original existing slice that are not part of the shrunken slice,
+                        // preventing stray slice IDs on the plate that would later cause missing-key errors.
+                        if (existingAfterOverlap != null)
+                        {
+                            for (int cr = existingSlice.RowMin; cr <= existingSlice.RowMax; cr++)
+                                for (int cc = existingSlice.ColumnMin; cc <= existingSlice.ColumnMax; cc++)
+                                    if (cr < existingAfterOverlap.RowMin || cr > existingAfterOverlap.RowMax ||
+                                        cc < existingAfterOverlap.ColumnMin || cc > existingAfterOverlap.ColumnMax)
+                                        plate[cr, cc] = mPlate[cr, cc];
+                        }
+                    }
+                    else {
+                        existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(maxSlice);
+                    }
+                   
                     sliceHash[existingSlice.ID] = existingAfterOverlap;
                 }
 
@@ -184,7 +290,15 @@ namespace HashCode_Pizza
                             continue;
 
                         PizzaSlice existingSlice = sliceHash[overlapSliceId];
-                        PizzaSlice existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(newSlice);
+                        PizzaSlice existingAfterOverlap;
+
+                        if (mIsMedium) {
+                            existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping_Generalized(newSlice);
+                        }
+                        else {
+                            existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(newSlice);
+                        }
+
                         if (existingAfterOverlap == null)
                         {
                             isValidOverlap = false;
@@ -212,6 +326,10 @@ namespace HashCode_Pizza
                     {
                         maxSlice = newSlice;
                         maxSliceIngredients = newSliceIngredients;
+                    }
+                    else if (maxSliceIngredients == newSliceIngredients && newSlice.GetSize() < maxSlice.GetSize())
+                    {
+                        maxSlice = newSlice;
                     }
                 }
             }
