@@ -141,6 +141,25 @@ namespace HashCode_Pizza
             } while (improved);
             FillGaps(plate, sliceHash, ref nextSliceId);
             ExpandSlices(plate, sliceHash);
+
+            // Re-slicing pass after gap filling and expansion
+            int postScore = PizzaSlice.GetSlicesSize(sliceHash.Values);
+            bool postImproved;
+            do
+            {
+                List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
+                foreach (PizzaSlice slice in slices)
+                {
+                    if (!sliceHash.TryGetValue(slice.ID, out PizzaSlice currentSlice)) continue;
+                    sliceHash.Remove(currentSlice.ID);
+                    currentSlice.RestoreSliceToPlate(plate, mPlate);
+                    SlicePizzaAtPosition(plate, currentSlice.RowMin, currentSlice.ColumnMin, sliceHash, currentSlice.ID);
+                }
+                int curr = PizzaSlice.GetSlicesSize(sliceHash.Values);
+                postImproved = curr > postScore;
+                postScore = curr;
+            } while (postImproved);
+
             return new List<PizzaSlice>(sliceHash.Values);
         }
         
