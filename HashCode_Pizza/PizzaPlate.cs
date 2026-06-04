@@ -267,8 +267,8 @@ namespace HashCode_Pizza
         }
         private PizzaSlice GetMaxSliceExtentionAt(int[,] plate, Dictionary<int, PizzaSlice> sliceHash, int row, int column, int nextSliceId)
         {
-            PizzaSlice maxSlice = null;
-            int maxSliceIngredients = 0;
+            PizzaSlice bestSlice = null;
+            int maxNetGain = 0;
             for (int minRow = row; minRow >= Math.Max(0, row - this.mMaxSliceSize); minRow--)
             for (int maxRow = row; maxRow < Math.Min(row + this.mMaxSliceSize + 1, mRows); maxRow++)
             {
@@ -281,11 +281,7 @@ namespace HashCode_Pizza
                     if (isValidSlice != CHECK_SLICE_VALID)
                         continue;
                     PizzaSlice newSlice = new PizzaSlice(nextSliceId, minRow, maxRow, minCol, maxCol);
-                    // The new slice contains positions previously not in any slice
-                    int newSliceIngredients = newSlice.CountIngredients(plate);
-                    if (newSliceIngredients == 0)
-                        continue;
-                    // Check overlapping slices are still valid slices
+                    int netGain = newSlice.GetSize();
                     Dictionary<int, int> sliceContent = newSlice.GetSliceContent(plate);
                     bool isValidOverlap = true;
                     foreach (int overlapSliceId in sliceContent.Keys)
@@ -312,27 +308,24 @@ namespace HashCode_Pizza
                             isValidOverlap = false;
                             break;
                         }
+
+                        netGain -= (existingSlice.GetSize() - existingAfterOverlap.GetSize());
                     }
                     if (isValidOverlap == false)
                         continue;
-                    // Check if the new slice is bettter than existing max
-                    if (maxSlice == null)
+
+                    if (netGain <= 0)
+                        continue;
+
+                    if (bestSlice == null || netGain > maxNetGain ||
+                        (netGain == maxNetGain && newSlice.GetSize() < bestSlice.GetSize()))
                     {
-                        maxSlice = newSlice;
-                        maxSliceIngredients = newSliceIngredients;
-                    }
-                    else if (maxSliceIngredients < newSliceIngredients)
-                    {
-                        maxSlice = newSlice;
-                        maxSliceIngredients = newSliceIngredients;
-                    }
-                    else if (maxSliceIngredients == newSliceIngredients && newSlice.GetSize() < maxSlice.GetSize())
-                    {
-                        maxSlice = newSlice;
+                        bestSlice = newSlice;
+                        maxNetGain = netGain;
                     }
                 }
             }
-            return maxSlice;
+            return bestSlice;
         }
         public bool IsValidSlicing(List<PizzaSlice> slices)
         {
