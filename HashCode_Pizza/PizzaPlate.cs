@@ -123,7 +123,6 @@ namespace HashCode_Pizza
             do
             {
                 List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
-
                 if (mIsBig) {
                     slices.Sort((a, b) => b.GetSize().CompareTo(a.GetSize()));
                 }
@@ -155,9 +154,7 @@ namespace HashCode_Pizza
                 foreach (PizzaSlice slice in slices)
                 {
                     if (!sliceHash.TryGetValue(slice.ID, out PizzaSlice current)) continue;
-
                     int nrMin = current.RowMin, nrMax = current.RowMax, ncMin = current.ColumnMin, ncMax = current.ColumnMax;
-
                     // try expand up
                     if (current.RowMin > 0)
                     {
@@ -194,7 +191,6 @@ namespace HashCode_Pizza
                         if (allFree && IsValidSlice(mPlate, current.RowMin, current.RowMax, current.ColumnMin, current.ColumnMax + 1) == CHECK_SLICE_VALID)
                             ncMax = current.ColumnMax + 1;
                     }
-
                     if (nrMin != current.RowMin || nrMax != current.RowMax || ncMin != current.ColumnMin || ncMax != current.ColumnMax)
                     {
                         // remove old slice from plate, add new extended slice
@@ -210,7 +206,6 @@ namespace HashCode_Pizza
                 }
             } while (expanded);
         }
-
         private void FillGaps(int[,] plate, Dictionary<int, PizzaSlice> sliceHash, ref int nextSliceId)
         {
             bool placed;
@@ -260,7 +255,6 @@ namespace HashCode_Pizza
         {
             maxNetGain = 0;
             PizzaSlice bestSlice = null;
-
             for (int minRow = row; minRow >= Math.Max(0, row - mMaxSliceSize); minRow--)
             for (int maxRow = row; maxRow < Math.Min(row + mMaxSliceSize + 1, mRows); maxRow++)
             {
@@ -272,7 +266,6 @@ namespace HashCode_Pizza
                         break;
                     if (isValidSlice != CHECK_SLICE_VALID)
                         continue;
-
                     PizzaSlice newSlice = new PizzaSlice(nextSliceId, minRow, maxRow, minCol, maxCol);
                     int netGain = newSlice.GetSize();
                     Dictionary<int, int> content = newSlice.GetSliceContent(plate);
@@ -317,19 +310,20 @@ namespace HashCode_Pizza
                     PizzaSlice existingAfterOverlap;
                     if (mIsMedium) {
                         existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping_Generalized(maxSlice);
-                        // Clear cells from the original existing slice that are not part of the shrunken slice,
-                        // preventing stray slice IDs on the plate that would later cause missing-key errors.
-                        if (existingAfterOverlap != null)
-                        {
-                            for (int cr = existingSlice.RowMin; cr <= existingSlice.RowMax; cr++)
-                                for (int cc = existingSlice.ColumnMin; cc <= existingSlice.ColumnMax; cc++)
-                                    if (cr < existingAfterOverlap.RowMin || cr > existingAfterOverlap.RowMax ||
-                                        cc < existingAfterOverlap.ColumnMin || cc > existingAfterOverlap.ColumnMax)
-                                        plate[cr, cc] = mPlate[cr, cc];
-                        }
                     }
                     else {
                         existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(maxSlice);
+                        PizzaSlice gen = existingSlice.BuildShirnkedSliceWithOverlapping_Generalized(maxSlice);
+                        if (existingAfterOverlap == null || (gen != null && gen.GetSize() > existingAfterOverlap.GetSize()))
+                            existingAfterOverlap = gen;
+                    }
+                    if (existingAfterOverlap != null)
+                    {
+                        for (int cr = existingSlice.RowMin; cr <= existingSlice.RowMax; cr++)
+                            for (int cc = existingSlice.ColumnMin; cc <= existingSlice.ColumnMax; cc++)
+                                if (cr < existingAfterOverlap.RowMin || cr > existingAfterOverlap.RowMax ||
+                                    cc < existingAfterOverlap.ColumnMin || cc > existingAfterOverlap.ColumnMax)
+                                    plate[cr, cc] = mPlate[cr, cc];
                     }
                    
                     sliceHash[existingSlice.ID] = existingAfterOverlap;
@@ -365,12 +359,21 @@ namespace HashCode_Pizza
                             continue;
                         PizzaSlice existingSlice = sliceHash[overlapSliceId];
                         PizzaSlice existingAfterOverlap;
-                        if (mIsMedium) {
-                            existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping_Generalized(newSlice);
+
+                        PizzaSlice afterOrig = existingSlice.BuildShirnkedSliceWithOverlapping(newSlice);
+                        PizzaSlice afterGen  = existingSlice.BuildShirnkedSliceWithOverlapping_Generalized(newSlice);
+                        PizzaSlice bestAfter = null;
+                        int bestLoss = int.MaxValue;
+                        if (afterOrig != null && this.IsValidSlice(this.mPlate, afterOrig.RowMin, afterOrig.RowMax, afterOrig.ColumnMin, afterOrig.ColumnMax) == CHECK_SLICE_VALID) {
+                            bestAfter = afterOrig;
+                            bestLoss = existingSlice.GetSize() - afterOrig.GetSize();
                         }
-                        else {
-                            existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(newSlice);
+                        if (afterGen != null && this.IsValidSlice(this.mPlate, afterGen.RowMin, afterGen.RowMax, afterGen.ColumnMin, afterGen.ColumnMax) == CHECK_SLICE_VALID) {
+                            int lossGen = existingSlice.GetSize() - afterGen.GetSize();
+                            if (bestAfter == null || lossGen < bestLoss) { bestAfter = afterGen; bestLoss = lossGen; }
                         }
+                        existingAfterOverlap = bestAfter;
+
                         if (existingAfterOverlap == null)
                         {
                             isValidOverlap = false;
@@ -383,15 +386,12 @@ namespace HashCode_Pizza
                             isValidOverlap = false;
                             break;
                         }
-
                         netGain -= (existingSlice.GetSize() - existingAfterOverlap.GetSize());
                     }
                     if (isValidOverlap == false)
                         continue;
-
                     if (netGain <= 0)
                         continue;
-
                     if (bestSlice == null || netGain > maxNetGain ||
                         (netGain == maxNetGain && newSlice.GetSize() < bestSlice.GetSize()))
                     {
