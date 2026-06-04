@@ -32,6 +32,7 @@ namespace HashCode_Pizza
         private int mMaxSliceSize;
         private int[,] mPlate;
         private bool mIsMedium;
+        private bool mIsBig;
         public PizzaPlate(int rows, int columns, int[,] plate, int minIng, int maxSliceSize)
         {
             mRows = rows;
@@ -40,6 +41,7 @@ namespace HashCode_Pizza
             mMinIngPerSlice = minIng;
             mMaxSliceSize = maxSliceSize;
             mIsMedium = (rows == 200 && columns == 250);
+            mIsBig = (rows == 1000 && columns == 1000);
         }
         public Bitmap generateSlicingBitmap(List<PizzaSlice> slices)
         {
@@ -121,6 +123,11 @@ namespace HashCode_Pizza
             do
             {
                 List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
+
+                if (mIsBig) {
+                    slices.Sort((a, b) => b.GetSize().CompareTo(a.GetSize()));
+                }
+                
                 foreach (PizzaSlice slice in slices)
                 {
                     if (!sliceHash.TryGetValue(slice.ID, out PizzaSlice currentSlice))
