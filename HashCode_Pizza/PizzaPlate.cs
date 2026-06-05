@@ -138,6 +138,9 @@ namespace HashCode_Pizza
 
                     PizzaSlice existingSlice = sliceHash[overlapSliceId];
                     PizzaSlice existingAfterOverlap = existingSlice.BuildShirnkedSliceWithOverlapping(maxSlice);
+                    // Free the full footprint of the old slice (releasing any orphaned cells), then re-stamp the shrunk part
+                    existingSlice.RestoreSliceToPlate(plate, mPlate);
+                    existingAfterOverlap.RemoveSliceFromPlate(plate);
                     sliceHash[existingSlice.ID] = existingAfterOverlap;
                 }
 
@@ -178,6 +181,7 @@ namespace HashCode_Pizza
                     // Check overlapping slices are still valid slices
                     Dictionary<int, int> sliceContent = newSlice.GetSliceContent(plate);
                     bool isValidOverlap = true;
+                    int sizeDelta = 0;
                     foreach (int overlapSliceId in sliceContent.Keys)
                     {
                         if (overlapSliceId > 0)
@@ -198,20 +202,26 @@ namespace HashCode_Pizza
                             isValidOverlap = false;
                             break;
                         }
+                        sizeDelta += existingAfterOverlap.GetSize() - existingSlice.GetSize();
                     }
                     if (isValidOverlap == false)
+                        continue;
+
+                    // Net covered-cell change = cells gained by the new slice minus cells lost (shrink + orphaning)
+                    int netGain = newSlice.GetSize() + sizeDelta;
+                    if (netGain <= 0)
                         continue;
 
                     // Check if the new slice is bettter than existing max
                     if (maxSlice == null)
                     {
                         maxSlice = newSlice;
-                        maxSliceIngredients = newSliceIngredients;
+                        maxSliceIngredients = netGain;
                     }
-                    else if (maxSliceIngredients < newSliceIngredients)
+                    else if (maxSliceIngredients < netGain)
                     {
                         maxSlice = newSlice;
-                        maxSliceIngredients = newSliceIngredients;
+                        maxSliceIngredients = netGain;
                     }
                 }
             }
