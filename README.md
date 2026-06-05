@@ -77,5 +77,11 @@ mono HashCode_Pizza/bin/Release/HashCode_Pizza.exe test.in
   input always produces the same score and output.
 - **Runtime:** all 2017 practice instances (including big, 1000×1000) finish in
   seconds — well under any 10-minute limit.
-- Reference scores on the 2017 practice set: Example 15, Small 42,
-  Medium 49,576, Big 909,569 (total 959,202).
+
+# Theoretical Max Scores
+
+Example 15
+Small 42
+Medium 50,000
+Big 1,000,000
+
