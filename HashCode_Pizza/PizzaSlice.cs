@@ -1,6 +1,4 @@
-﻿﻿using System;
-using System.Collections.Generic;
-
+﻿﻿﻿using System.Collections.Generic;
 namespace HashCode_Pizza
 {
     class PizzaSlice
@@ -10,7 +8,6 @@ namespace HashCode_Pizza
         public int RowMax { get; private set; }
         public int ColumnMin { get; private set; }
         public int ColumnMax { get; private set; }
-
         public PizzaSlice(int id, int rowMin, int rowMax, int columnMin, int columnMax)
         {
             this.ID = id;
@@ -19,24 +16,19 @@ namespace HashCode_Pizza
             this.ColumnMax = columnMax;
             this.RowMax = rowMax;
         }
-
         public int GetSize()
         {
             return (RowMax - RowMin + 1) * (ColumnMax - ColumnMin + 1);
         }
-
         public int CountIngredients(int[,] plate)
         {
             int count = 0;
-
             for (int r = RowMin; r <= RowMax; r++)
                 for (int c = ColumnMin; c <= ColumnMax; c++)
                     if (plate[r, c] > 0)
                         count++;
-
             return count;
         }
-
         public Dictionary<int, int> GetSliceContent(int[,] plate)
         {
             Dictionary<int, int> ingredients = new Dictionary<int, int>();
@@ -47,74 +39,29 @@ namespace HashCode_Pizza
                     int value;
                     if (ingredients.TryGetValue(key, out value) == false)
                         value = 0;
-
                     ingredients[key] = value + 1;
                 }
-
             return ingredients;
         }
-
         public void RemoveSliceFromPlate(int[,] plate)
         {
             for (int r = RowMin; r <= RowMax; r++)
                 for (int c = ColumnMin; c <= ColumnMax; c++)
                     plate[r, c] = this.ID;
         }
-
         public void RestoreSliceToPlate(int[,] plate, int[,] sourcePlace)
         {
             for (int r = RowMin; r <= RowMax; r++)
                 for (int c = ColumnMin; c <= ColumnMax; c++)
                     plate[r, c] = sourcePlace[r, c];
         }
-
         public static int GetSlicesSize(ICollection<PizzaSlice> slices)
         {
             int size = 0;
             foreach (PizzaSlice slice in slices)
                 size += slice.GetSize();
-
             return size;
         }
-
-        public PizzaSlice BuildShirnkedSliceWithOverlapping_Generalized(PizzaSlice newSlice) {
-            // Determine overlapping rectangle
-            int overlapRowMin = Math.Max(this.RowMin, newSlice.RowMin);
-            int overlapRowMax = Math.Min(this.RowMax, newSlice.RowMax);
-            int overlapColMin = Math.Max(this.ColumnMin, newSlice.ColumnMin);
-            int overlapColMax = Math.Min(this.ColumnMax, newSlice.ColumnMax);
-            if (overlapRowMin > overlapRowMax || overlapColMin > overlapColMax)
-                return null;
-            List<PizzaSlice> candidates = new List<PizzaSlice>();
-            // Top residual (full width)
-            if (this.RowMin <= overlapRowMin - 1)
-                candidates.Add(new PizzaSlice(this.ID, this.RowMin, overlapRowMin - 1, this.ColumnMin, this.ColumnMax));
-            // Bottom residual
-            if (overlapRowMax + 1 <= this.RowMax)
-                candidates.Add(new PizzaSlice(this.ID, overlapRowMax + 1, this.RowMax, this.ColumnMin, this.ColumnMax));
-            // Left residual (overlap rows, left columns)
-            if (this.ColumnMin <= overlapColMin - 1)
-                candidates.Add(new PizzaSlice(this.ID, overlapRowMin, overlapRowMax, this.ColumnMin, overlapColMin - 1));
-            // Right residual
-            if (overlapColMax + 1 <= this.ColumnMax)
-                candidates.Add(new PizzaSlice(this.ID, overlapRowMin, overlapRowMax, overlapColMax + 1, this.ColumnMax));
-            if (candidates.Count == 0)
-                return null;
-            // Pick the largest remaining area
-            PizzaSlice best = candidates[0];
-            int bestArea = best.GetSize();
-            for (int i = 1; i < candidates.Count; i++)
-            {
-                int area = candidates[i].GetSize();
-                if (area > bestArea)
-                {
-                    bestArea = area;
-                    best = candidates[i];
-                }
-            }
-            return best;
-        }
-
         public PizzaSlice BuildShirnkedSliceWithOverlapping(PizzaSlice newSlice)
         {
             // Verify overlap is rect
@@ -126,50 +73,41 @@ namespace HashCode_Pizza
                 ((newSlice.RowMin > this.RowMin) || (newSlice.RowMax < this.RowMax))
                 )
                 return null;
-
             // Calc new overlapping slice
             int existingNewRowMin = this.RowMin;
             int existingNewRowMax = this.RowMax;
             int existingNewColumnMin = this.ColumnMin;
             int existingNewColumnMax = this.ColumnMax;
-
             // Full column overlap
             if ((newSlice.ColumnMin <= this.ColumnMin) && (newSlice.ColumnMax >= this.ColumnMax))
             {
                 // New slice in the middle of old slice
                 if ((newSlice.RowMin > this.RowMin) && (newSlice.RowMax < this.RowMax))
                     return null;
-
                 // Above
                 if (newSlice.RowMin <= this.RowMin)
                     existingNewRowMin = newSlice.RowMax + 1;
-
                 // Below
                 if (newSlice.RowMax >= this.RowMax)
                     existingNewRowMax = newSlice.RowMin - 1;
             }
-
             // Full row overlap
             if ((newSlice.RowMin <= this.RowMin) && (newSlice.RowMax >= this.RowMax))
             {
                 // New slice in the middle of old slice
                 if ((newSlice.ColumnMin > this.ColumnMin) && (newSlice.ColumnMax < this.ColumnMax))
                     return null;
-
                 // Left
                 if (newSlice.ColumnMin <= this.ColumnMin)
                     existingNewColumnMin = newSlice.ColumnMax + 1;
-
                 // Right
                 if (newSlice.ColumnMax >= this.ColumnMax)
                     existingNewColumnMax = newSlice.ColumnMin - 1;
             }
-
             if (existingNewColumnMin > existingNewColumnMax)
                 return null;
             if (existingNewRowMin > existingNewRowMax)
                 return null;
-
             return new PizzaSlice(this.ID, existingNewRowMin, existingNewRowMax, existingNewColumnMin, existingNewColumnMax);
         }
     }
