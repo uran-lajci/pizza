@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace HashCode_Pizza
 {
@@ -74,6 +75,44 @@ namespace HashCode_Pizza
                 size += slice.GetSize();
 
             return size;
+        }
+
+        public PizzaSlice BuildShirnkedSliceWithOverlapping_Generalized(PizzaSlice newSlice) {
+            // Determine overlapping rectangle
+            int overlapRowMin = Math.Max(this.RowMin, newSlice.RowMin);
+            int overlapRowMax = Math.Min(this.RowMax, newSlice.RowMax);
+            int overlapColMin = Math.Max(this.ColumnMin, newSlice.ColumnMin);
+            int overlapColMax = Math.Min(this.ColumnMax, newSlice.ColumnMax);
+            if (overlapRowMin > overlapRowMax || overlapColMin > overlapColMax)
+                return null;
+            List<PizzaSlice> candidates = new List<PizzaSlice>();
+            // Top residual (full width)
+            if (this.RowMin <= overlapRowMin - 1)
+                candidates.Add(new PizzaSlice(this.ID, this.RowMin, overlapRowMin - 1, this.ColumnMin, this.ColumnMax));
+            // Bottom residual
+            if (overlapRowMax + 1 <= this.RowMax)
+                candidates.Add(new PizzaSlice(this.ID, overlapRowMax + 1, this.RowMax, this.ColumnMin, this.ColumnMax));
+            // Left residual (overlap rows, left columns)
+            if (this.ColumnMin <= overlapColMin - 1)
+                candidates.Add(new PizzaSlice(this.ID, overlapRowMin, overlapRowMax, this.ColumnMin, overlapColMin - 1));
+            // Right residual
+            if (overlapColMax + 1 <= this.ColumnMax)
+                candidates.Add(new PizzaSlice(this.ID, overlapRowMin, overlapRowMax, overlapColMax + 1, this.ColumnMax));
+            if (candidates.Count == 0)
+                return null;
+            // Pick the largest remaining area
+            PizzaSlice best = candidates[0];
+            int bestArea = best.GetSize();
+            for (int i = 1; i < candidates.Count; i++)
+            {
+                int area = candidates[i].GetSize();
+                if (area > bestArea)
+                {
+                    bestArea = area;
+                    best = candidates[i];
+                }
+            }
+            return best;
         }
 
         public PizzaSlice BuildShirnkedSliceWithOverlapping(PizzaSlice newSlice)
