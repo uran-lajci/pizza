@@ -82,27 +82,67 @@ namespace HashCode_Pizza
 
         public List<PizzaSlice> PerformSlice()
         {
-            int[,] plate = (int[,])mPlate.Clone();
-
-            // Create greedy slicing. Iterating this phase did not yield better results
-            List<PizzaSlice> slices = PerformSlice_PhaseTwo(plate);
-
-            return slices;
+            // Try several construction sweep orders and keep the best-scoring slicing
+            List<List<int[]>> orders = BuildSweepOrders();
+            List<PizzaSlice> best = null;
+            int bestScore = -1;
+            foreach (List<int[]> order in orders)
+            {
+                int[,] plate = (int[,])mPlate.Clone();
+                List<PizzaSlice> slices = PerformSlice_PhaseTwo(plate, order);
+                int score = PizzaSlice.GetSlicesSize(slices);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = slices;
+                }
+            }
+            return best;
         }
 
-        private List<PizzaSlice> PerformSlice_PhaseTwo(int[,] plate)
+        private List<List<int[]>> BuildSweepOrders()
+        {
+            List<int[]> rowMajor = new List<int[]>(mRows * mColumns);
+            for (int r = 0; r < mRows; r++)
+                for (int c = 0; c < mColumns; c++)
+                    rowMajor.Add(new int[] { r, c });
+
+            List<int[]> colMajor = new List<int[]>(mRows * mColumns);
+            for (int c = 0; c < mColumns; c++)
+                for (int r = 0; r < mRows; r++)
+                    colMajor.Add(new int[] { r, c });
+
+            List<int[]> reversed = new List<int[]>(rowMajor);
+            reversed.Reverse();
+
+            List<List<int[]>> orders = new List<List<int[]>> { rowMajor, colMajor, reversed };
+
+            int[] seeds = { 12345, 67890 };
+            foreach (int seed in seeds)
+            {
+                List<int[]> shuffled = new List<int[]>(rowMajor);
+                Random rng = new Random(seed);
+                for (int i = shuffled.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Next(i + 1);
+                    int[] tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+                }
+                orders.Add(shuffled);
+            }
+            return orders;
+
+        }
+
+        private List<PizzaSlice> PerformSlice_PhaseTwo(int[,] plate, List<int[]> order)
         {
             int nextSliceId = -1;
             Dictionary<int, PizzaSlice> sliceHash = new Dictionary<int, PizzaSlice>();
 
             // Slice Pizza
-            for (int r = 0; r < mRows; r++)
+            foreach (int[] pos in order)
             {
-                for (int c = 0; c < mColumns; c++)
-                {
-                    if (SlicePizzaAtPosition(plate, r, c, sliceHash, nextSliceId) == true)
-                        nextSliceId--;
-                }
+                if (SlicePizzaAtPosition(plate, pos[0], pos[1], sliceHash, nextSliceId) == true)
+                    nextSliceId--;
             }
             
             // Try re-slicing
