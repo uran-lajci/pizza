@@ -459,7 +459,21 @@ namespace HashCode_Pizza
             AddAnchorIfValid(plate, anchors, oldSlice.RowMin, oldSlice.ColumnMax);
             AddAnchorIfValid(plate, anchors, oldSlice.RowMax, oldSlice.ColumnMin);
             AddAnchorIfValid(plate, anchors, (oldSlice.RowMin + oldSlice.RowMax) / 2, (oldSlice.ColumnMin + oldSlice.ColumnMax) / 2);
-        
+            
+            // Add up to 5 additional anchors at uncovered cells inside the old slice's bounding box
+            int added = 0;
+            for (int r = oldSlice.RowMin; r <= oldSlice.RowMax && added < 5; r++)
+            {
+                for (int c = oldSlice.ColumnMin; c <= oldSlice.ColumnMax && added < 5; c++)
+                {
+                    if (plate[r, c] > 0 && !anchors.Contains(Tuple.Create(r, c)))
+                    {
+                        anchors.Add(Tuple.Create(r, c));
+                        added++;
+                    }
+                }
+            }
+
             foreach (var anchor in anchors)
             {
                 int ar = anchor.Item1, ac = anchor.Item2;
