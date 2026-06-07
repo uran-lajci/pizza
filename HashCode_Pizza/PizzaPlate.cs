@@ -147,17 +147,24 @@ namespace HashCode_Pizza
                     nextSliceId--;
             }
             
-            // Try re-slicing
-            List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
-            slices.Sort((a, b) => a.GetSize().CompareTo(b.GetSize()));
-            foreach (PizzaSlice slice in slices)
+            int prevResliceScore = -1;
+            for (int pass = 0; pass < 5; pass++)
             {
-                PizzaSlice currentSlice = sliceHash[slice.ID];
-
-                sliceHash.Remove(currentSlice.ID);
-                currentSlice.RestoreSliceToPlate(plate, mPlate);
-
-                SlicePizzaAtPosition(plate, currentSlice.RowMin, currentSlice.ColumnMin, sliceHash, currentSlice.ID);
+                List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
+                slices.Sort((a, b) => a.GetSize().CompareTo(b.GetSize()));
+                foreach (PizzaSlice slice in slices)
+                {
+                    PizzaSlice currentSlice;
+                    if (sliceHash.TryGetValue(slice.ID, out currentSlice) == false)
+                        continue;
+                    sliceHash.Remove(currentSlice.ID);
+                    currentSlice.RestoreSliceToPlate(plate, mPlate);
+                    SlicePizzaAtPosition(plate, currentSlice.RowMin, currentSlice.ColumnMin, sliceHash, currentSlice.ID);
+                }
+                int score = PizzaSlice.GetSlicesSize(sliceHash.Values);
+                if (score <= prevResliceScore)
+                    break;
+                prevResliceScore = score;
             }
 
             // Gap-filling mop-up: place smallest valid overlap-free slice on any remaining free cell
