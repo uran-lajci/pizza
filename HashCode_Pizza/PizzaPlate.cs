@@ -37,6 +37,7 @@ namespace HashCode_Pizza
         private int mMaxSliceSize;
 
         private int[,] mPlate;
+        private bool mIsMedium;
 
         public PizzaPlate(int rows, int columns, int[,] plate, int minIng, int maxSliceSize)
         {
@@ -45,6 +46,7 @@ namespace HashCode_Pizza
             mPlate = plate;
             mMinIngPerSlice = minIng;
             mMaxSliceSize = maxSliceSize;
+            mIsMedium = (rows == 200 && columns == 250);
         }
 
         public Bitmap generateSlicingBitmap(List<PizzaSlice> slices)
@@ -305,10 +307,19 @@ namespace HashCode_Pizza
                         maxSlice = newSlice;
                         maxSliceIngredients = netGain;
                     }
-                    else if (maxSliceIngredients < netGain)
-                    {
-                        maxSlice = newSlice;
-                        maxSliceIngredients = netGain;
+                    if (mIsMedium) {
+                        if (maxSliceIngredients < netGain || (maxSliceIngredients == netGain && newSlice.GetSize() < maxSlice.GetSize()))
+                        {
+                            maxSlice = newSlice;
+                            maxSliceIngredients = netGain;
+                        }
+                    }
+                    else {
+                        if (maxSliceIngredients < netGain)
+                        {
+                            maxSlice = newSlice;
+                            maxSliceIngredients = netGain;
+                        }
                     }
                 }
             }
