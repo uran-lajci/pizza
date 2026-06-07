@@ -161,8 +161,62 @@ namespace HashCode_Pizza
 
             // Gap-filling mop-up: place smallest valid overlap-free slice on any remaining free cell
             FillGaps(plate, sliceHash);            
+            // Slice-growing: absorb adjacent free cells into existing slices (monotone, H-bounded)
+            GrowSlices(plate, sliceHash);
 
             return new List<PizzaSlice>(sliceHash.Values);
+        }
+
+        private void GrowSlices(int[,] plate, Dictionary<int, PizzaSlice> sliceHash)
+        {
+            foreach (int id in new List<int>(sliceHash.Keys))
+            {
+                PizzaSlice s = sliceHash[id];
+                bool grew = true;
+                while (grew)
+                {
+                    grew = false;
+                    // Try up, down, left, right — extend by one full band if every cell is free and area stays <= H
+                    // Up
+                    if (s.RowMin > 0 && (s.RowMax - s.RowMin + 2) * (s.ColumnMax - s.ColumnMin + 1) <= mMaxSliceSize
+                        && IsBandFree(plate, s.RowMin - 1, s.RowMin - 1, s.ColumnMin, s.ColumnMax))
+                    {
+                        s = new PizzaSlice(id, s.RowMin - 1, s.RowMax, s.ColumnMin, s.ColumnMax);
+                        s.RemoveSliceFromPlate(plate); grew = true; continue;
+                    }
+                    // Down
+                    if (s.RowMax < mRows - 1 && (s.RowMax - s.RowMin + 2) * (s.ColumnMax - s.ColumnMin + 1) <= mMaxSliceSize
+                        && IsBandFree(plate, s.RowMax + 1, s.RowMax + 1, s.ColumnMin, s.ColumnMax))
+                    {
+                        s = new PizzaSlice(id, s.RowMin, s.RowMax + 1, s.ColumnMin, s.ColumnMax);
+                        s.RemoveSliceFromPlate(plate); grew = true; continue;
+                    }
+                    // Left
+                    if (s.ColumnMin > 0 && (s.RowMax - s.RowMin + 1) * (s.ColumnMax - s.ColumnMin + 2) <= mMaxSliceSize
+                        && IsBandFree(plate, s.RowMin, s.RowMax, s.ColumnMin - 1, s.ColumnMin - 1))
+                    {
+                        s = new PizzaSlice(id, s.RowMin, s.RowMax, s.ColumnMin - 1, s.ColumnMax);
+                        s.RemoveSliceFromPlate(plate); grew = true; continue;
+                    }
+                    // Right
+                    if (s.ColumnMax < mColumns - 1 && (s.RowMax - s.RowMin + 1) * (s.ColumnMax - s.ColumnMin + 2) <= mMaxSliceSize
+                        && IsBandFree(plate, s.RowMin, s.RowMax, s.ColumnMax + 1, s.ColumnMax + 1))
+                    {
+                        s = new PizzaSlice(id, s.RowMin, s.RowMax, s.ColumnMin, s.ColumnMax + 1);
+                        s.RemoveSliceFromPlate(plate); grew = true; continue;
+                    }
+                }
+                sliceHash[id] = s;
+            }
+        }
+
+        private bool IsBandFree(int[,] plate, int minRow, int maxRow, int minCol, int maxCol)
+        {
+            for (int r = minRow; r <= maxRow; r++)
+                for (int c = minCol; c <= maxCol; c++)
+                    if (plate[r, c] <= 0)
+                        return false;
+            return true;
         }
 
 
