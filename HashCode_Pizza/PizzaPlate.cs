@@ -157,9 +157,56 @@ namespace HashCode_Pizza
                 SlicePizzaAtPosition(plate, currentSlice.RowMin, currentSlice.ColumnMin, sliceHash, currentSlice.ID);
             }
 
+            // Gap-filling mop-up: place smallest valid overlap-free slice on any remaining free cell
+            FillGaps(plate, sliceHash);            
 
             return new List<PizzaSlice>(sliceHash.Values);
         }
+
+
+        private void FillGaps(int[,] plate, Dictionary<int, PizzaSlice> sliceHash)
+        {
+            int nextSliceId = sliceHash.Count == 0 ? -1 : sliceHash.Keys.Min() - 1;
+            for (int r = 0; r < mRows; r++)
+            for (int c = 0; c < mColumns; c++)
+            {
+                if (plate[r, c] < 0)
+                    continue;
+                PizzaSlice best = FindSmallestValidFreeSliceAt(plate, r, c, nextSliceId);
+                if (best != null)
+                {
+                    best.RemoveSliceFromPlate(plate);
+                    sliceHash.Add(best.ID, best);
+                    nextSliceId--;
+                }
+            }
+        }
+
+        private PizzaSlice FindSmallestValidFreeSliceAt(int[,] plate, int row, int column, int nextSliceId)
+        {
+            PizzaSlice best = null;
+            for (int minRow = row; minRow >= Math.Max(0, row - this.mMaxSliceSize); minRow--)
+            for (int maxRow = row; maxRow < Math.Min(row + this.mMaxSliceSize + 1, mRows); maxRow++)
+            {
+                for (int minCol = column; minCol >= Math.Max(0, column - this.mMaxSliceSize); minCol--)
+                for (int maxCol = column; maxCol < Math.Min(column + this.mMaxSliceSize + 1, mColumns); maxCol++)
+                {
+                    int isValidSlice = IsValidSlice(this.mPlate, minRow, maxRow, minCol, maxCol);
+                    if ((isValidSlice == CHECK_SLICE_TOO_BIG) || (isValidSlice == CHECK_SLICE_INVALID_SLICE))
+                        break;
+                    if (isValidSlice != CHECK_SLICE_VALID)
+                        continue;
+                    // Overlap-free: every cell in the rectangle must currently be free
+                    if (IsValidSlice(plate, minRow, maxRow, minCol, maxCol) != CHECK_SLICE_VALID)
+                        continue;
+                    PizzaSlice candidate = new PizzaSlice(nextSliceId, minRow, maxRow, minCol, maxCol);
+                    if (best == null || candidate.GetSize() < best.GetSize())
+                        best = candidate;
+                }
+            }
+            return best;
+        }
+
 
         private bool SlicePizzaAtPosition(int[,] plate, int r, int c, Dictionary<int, PizzaSlice> sliceHash, int nextSliceId)
         {
