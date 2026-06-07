@@ -149,6 +149,7 @@ namespace HashCode_Pizza
             
             // Try re-slicing
             List<PizzaSlice> slices = new List<PizzaSlice>(sliceHash.Values);
+            slices.Sort((a, b) => a.GetSize().CompareTo(b.GetSize()));
             foreach (PizzaSlice slice in slices)
             {
                 PizzaSlice currentSlice = sliceHash[slice.ID];
